@@ -1,0 +1,49 @@
+hastype(Gamma, constant(X), tint).
+hastype(Gamma, bool(X), tbool).
+
+hastype(Gamma,variable(X),Y) :- lookup(Gamma,variable(X),Y).
+
+lookup([],variable(X),T) :- fail.
+lookup([pair(variable(X),T)|Xs],variable(X),T) :- !.
+lookup([pair(variable(Y),Z)|Xs],variable(X),T) :- lookup(Xs,variable(X),T).
+
+
+
+hastype(Gamma, neg(E), tint) :- hastype(Gamma, E, tint).
+hastype(Gamma, mul(E1, E2), tint) :- hastype(Gamma, E1, tint), hastype(Gamma, E2, tint), !.
+hastype(Gamma, div(E1, E2), tint) :- hastype(Gamma, E1, tint), hastype(Gamma, E2, tint), !.
+hastype(Gamma, mod(E1, E2), tint) :- hastype(Gamma, E1, tint), hastype(Gamma, E2, tint), !.
+hastype(Gamma, plus(E1, E2), tint) :- hastype(Gamma, E1, tint), hastype(Gamma, E2, tint), !.
+hastype(Gamma, sub(E1, E2), tint) :- hastype(Gamma, E1, tint), hastype(Gamma, E2, tint), !.
+hastype(Gamma, abs(E), tint) :- hastype(Gamma, E, tintT).
+
+
+hastype(Gamma, and(E1, E2), tbool) :- hastype(Gamma, E1, tbool), hastype(Gamma, E2, tbool), !.
+hastype(Gamma, or(E1, E2), tbool) :- hastype(Gamma, E1, tbool), hastype(Gamma, E2, tbool), !.
+hastype(Gamma, not(E), boolT) :- hastype(Gamma, E, boolT), !.
+
+hastype(Gamma, gt(E1, E2), tbool) :- hastype(Gamma, E1, tint), hastype(Gamma, E2, tint), !.
+hastype(Gamma, lt(E1, E2), tbool) :- hastype(Gamma, E1, tint), hastype(Gamma, E2, tint), !.
+hastype(Gamma, equal(E1, E2), tbool) :- hastype(Gamma, E1, tint), hastype(Gamma, E2, tint), !.
+hastype(Gamma, gte(E1, E2), tbool) :- hastype(Gamma, E1, tint), hastype(Gamma, E2, tint), !.
+hastype(Gamma, lte(E1, E2), tbool) :- hastype(Gamma, E1, tint), hastype(Gamma, E2, tint), !.
+hastype(Gamma, equal(E1, E2), tbool) :- hastype(Gamma, E1, tbool), hastype(Gamma, E2, tbool), !.
+
+hastype(Gamma,equals(E1,E2),T) :- hastype(Gamma,E1,T),hastype(Gamma,E2,T).
+
+hastype(Gamma,ifet(E1,E2,E3),T) :- hastype(Gamma,E1,tbool),hastype(Gamma,E2,T),hastype(Gamma,E3,T).
+
+hastype(Gamma,abs(variable(X),E),arrow(T1,T2)) :- hastype([pair(variable(X),T1)|Gamma],E,T2).
+
+hastype(Gamma,fun(E1,E2),T2) :- hastype(Gamma,E1,arrow(T1,T2)),hastype(Gamma,E2,T2).
+
+hastype(Gamma,tuple([E]),cartesian([T])) :- hastype(Gamma,E,T).
+hastype(Gamma,tuple([E|Es]),cartesian([T|Ts])) :- hastype(Gamma,E,T),hastype(Gamma,tuple(Es),cartesian(Ts)).
+
+
+typeElaborates(Gamma, x_is(X,T), [pair(X,T1)]) :- hastype(Gamma,T,T1).
+
+
+
+
+%hastype([],tuple([constant(n)]),W).
