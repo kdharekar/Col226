@@ -1,0 +1,176 @@
+type vector = float list;;
+type matrix = float list list;;
+
+   exception InvalidInput
+exception UnequalVectorSize
+exception UnequalMatrixShape
+exception IncompatibleMatrixShape
+exception SingularMatrix
+
+let rec vdim (v:vector): int = match v with
+	[] -> 0
+	| hd::tl -> 1 + vdim tl;;
+
+let rec mkzerov (n:int): vector = 	
+	if n=1 then 0.0::[]
+	else 0.0::(mkzerov (n-1));;	 
+
+ 
+
+let rec iszerov (v:vector): bool = match v with
+	[] ->true
+	|hd::tl -> if (hd=0.0) then iszerov tl else false ;;
+
+let rec addv (v1:vector) (v2:vector): vector = 
+	if (vdim v1) != (vdim v2) then raise UnequalVectorSize 
+	else  match v1,v2 with 
+	[],[] -> []
+	| hd1::tl1,hd2::tl2 -> (hd1+.hd2)::(addv tl1 tl2);; 
+	
+let rec scalarmultv (c:float) (v:vector): vector = 
+	match v with
+	[] -> []
+	|hd::tl -> (c*.hd)::(scalarmultv c tl);;
+
+let rec dotprodv (v1:vector) (v2:vector): float = 
+	if (vdim v1) != (vdim v2) then raise UnequalVectorSize
+	else let l = 0.0 in 
+	 match v1,v2 with 
+	[],[] -> l
+	| hd1::tl1,hd2::tl2 -> (hd1*.hd2) +.(dotprodv tl1 tl2);;
+
+let rec get (var:vector) (n:int) :float = match var with
+	[] -> 0.
+	| hd::tl -> if n=1 then hd else get tl (n-1) ;;
+
+let rec crossprodv ([a1;a2;a3]:vector) ([b1;b2;b3]:vector) :vector = 
+	[(a2*.b3)-.(a3*.b2);(a3*.b1)-.(a1*.b3);(a1*.b2)-.(a2*.b1)] ;;
+
+let rec column (m:matrix):int = match m with
+	[] -> 0
+	|hd::tl -> 1 + column tl;;
+
+let   row(m:matrix):int = match m with
+	hd::tl -> vdim hd  
+
+let rec mdim (m:matrix): int*int = 
+	(row m,column m) ;;
+
+let rec mkzerom (m:int) (n:int): matrix = match m with
+	0 -> []
+	|_ -> (mkzerov n)::(mkzerom (m-1) n);;
+
+let rec iszerom (m:matrix): bool = match m with 
+	[] -> true
+	|hd::tl -> if (iszerov hd) then iszerom tl else false;;
+
+let rec mkunitv (m:int) (n:int) (r:int) (t:int):vector =
+		if t=0 then []
+		else if r=n-1 then  1.0::mkunitv m n (r+1) (t-1)
+		else 0.0::mkunitv m n (r+1) (t-1);;
+let rec mkunitm1 (m:int) (n:int) : matrix =
+		if n = 0 then []
+		else (mkunitv m (m-n+1) 0 m)::(mkunitm1 m (n-1));;
+
+let rec mkunitm (m:int): matrix = mkunitm1 m m;; 
+
+let rec isunitm (m:matrix): bool =
+	if m = mkunitm1 (row m) (column m) then true
+	else false ;;
+
+let rec addm (m1:matrix) (m2:matrix): matrix = if column m1 != column m2 || row m1 = row m2 then raise UnequalMatrixShape else match m1,m2 with
+	[],[] -> []
+	| hd1::tl1, hd2::tl2 -> addv hd1 hd2 :: addm tl1 tl2;;
+
+let rec scalarmultm (c:float) (m:matrix) :matrix = match m with
+	[] -> []
+	|hd::tl -> scalarmultv c hd :: scalarmultm c tl;;
+
+let rec trans1 (m:matrix) (i:int) : vector = match m with
+	[] -> []
+	| hd::tl -> get hd i :: trans1 tl i;;
+
+let rec trans2 (m:matrix) (i:int) :matrix = 
+	match i with 0 -> []
+	| _ -> (trans1 m ((row m)-i+1))::(trans2 m (i-1)) ;;
+
+let rec transm (m:matrix): matrix = if column m =0 then raise SingularMatrix else trans2 m (row m) ;;
+
+
+
+
+
+let rec get1 (var:matrix) (n:int) : vector = match var with
+	[] -> []
+	| hd::tl -> if n=1 then hd else get1 tl (n-1) ;;
+
+
+
+let rec multmhelp1 (m1:matrix) (m2:matrix) (i:int): vector = 
+	match m2 with 
+	[] -> []
+	| hd::tl -> (dotprodv (get1 m1 i) hd) :: (multmhelp1 m1 tl i) ;;
+
+let rec mul (m1:matrix) (m2:matrix) (i:int): matrix =
+	match i with 0 -> []
+	| _ -> (multmhelp1 m1 m2 ((row m1)-i+1))::(mul m1 m2 (i-1)) ;;
+
+let rec multm (m1:matrix) (m2:matrix): matrix = if column m1 = row m2 then raise IncompatibleMatrixShape else mul m1 (transm m2) (column m1) ;;
+
+let rec remove1 (tl:matrix) : matrix = match tl with 
+	[] -> []
+	| hd1 :: tl1 -> (match hd1 with [] -> []
+			| hd2::tl2 -> tl2 ) :: remove1 tl1 ;;
+
+let rec drop (m:matrix) (i:int) : matrix = match m with
+	[] -> []
+	| hd::tl -> if i=1 then tl else hd::drop tl (i-1);;
+
+let rec dropsign (i:int) : int = if i mod 2 = 1 then 1 else 0 ;;
+
+
+
+let rec detm1 (n:matrix) (m:matrix) (sign:int): float = match m with
+	 [] -> 0.0
+	| hd::tl -> if(dropsign sign) = 1 then if (vdim hd =1) then  get hd 1  else  (get hd 1)*.(detm1 (drop (remove1 n) sign) (drop (remove1 n) sign) 1 ) +. detm1 n tl (sign+1) 
+					else (if (vdim hd =1 ) then  -.(get hd 1)  else -.(get hd 1)*.(detm1 (drop (remove1 n) sign) (drop (remove1 n) sign) 1 ) +. detm1 n tl (sign+1));;
+
+let rec detm (m:matrix): float = if column m =0 then raise SingularMatrix else detm1 m m 1 ;;
+
+let rec removenm (tl:matrix) (n:int) (m:int): matrix = 
+	transm (drop (transm (drop tl n)) m) ;;
+let rec inverse1 (n:matrix) (i:int) (j:int) (x:int) (y:int): vector = if j>y then [] 
+									else if ((i mod 2)=1) && ((j mod 2)=1) then detm  (removenm n i j)::(inverse1 n i (j+1) x y) 
+									else if((i mod 2)=0) && ((j mod 2)=0) then  detm  (removenm n i j)::(inverse1 n i (j+1) x y) 
+									else if  ((i mod 2)=0) && ((j mod 2)=1) then -.detm  (removenm n i j)::(inverse1 n i (j+1) x y) 
+									else -. detm (removenm n i j)::inverse1 n i (j+1) x y ;;
+	
+let rec inverse2 (n:matrix) (i:int) (j:int) (x:int) (y:int): matrix =
+	if i>x then [] else inverse1 n i j x y :: inverse2 n (i+1) j x y ;;
+let detinverse (m:matrix) : float = 1./.detm m;;
+
+let rec invm (m:matrix): matrix = transm (scalarmultm (detinverse m) (inverse2 m 1 1 (row m) (row m)));; 
+
+
+
+	
+	
+
+(*  [[1.;4.;6.];[2.;5.;3.];[4.;2.;1.]] [[2.;1.];[1.;2.]];[7.;9.]] *)
+
+
+
+
+
+
+
+
+
+	
+
+	
+	
+	
+
+
+
