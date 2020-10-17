@@ -1,0 +1,105 @@
+type sigma = {symbol:string;arity:int} 
+type signature = sigma list
+type variable = string
+type term = V of variable | Node of string * (term list)
+type substitutions = (variable*term) list 
+
+(*this is working
+vars (Node ("ak",[Node ("kana",[Node ("ashu",[V "zero"])]);V "aa" ; Node ("ashu",[Node ("ashu",[V "zero";V "kara"])])])) [][{symbol="ak";arity=2};{symbol="kana";arity=(1)};{symbol="ashu";arity=1}];;
+check_sig [{symbol="ak";arity=7};{symbol="kana";arity=(1)};{symbol="ashu";arity=4}] []
+substitution (Node ("aaaaa",[Node ("bbbbbb",[V "value"])])) ("kana":variable) (Node ("ak",[Node ("kana",[Node ("ashu",[V "zero"])]);V "aa" ; Node ("ashu",[Node ("ashu",[V "zero";V "kara"])])]));;
+ 
+*)
+
+
+let rec check_sig1 (a:signature) b =
+match a with
+[] -> true
+| hd::tl -> if(List.mem (hd.symbol) b) then false else if(hd.arity<0) then false else check_sig1 tl (hd.symbol::b)
+
+let check_sig a = check_sig1 (a) []    (*checks if the given signature is valid if 
+					if valid then returns trueeelse false *)
+
+let rec find (a:string) (b:signature) = match b with  (*helper function of wfterm*)
+[] -> false 
+| hd::tl -> if(hd.symbol = a) then true else find a tl;;
+
+let rec arity_find (a:string) (b:signature) = match b with (*helper function of wfterm*)
+[] -> 0
+| hd::tl -> if(hd.symbol = a) then hd.arity else arity_find a tl
+
+
+(*wfterm checks if the term is well formed according to the given signature it checks the conditions like if the symbol used in trm exist in signature and is its arity correct *)
+let rec wfterm (a:term) (b:signature) = match a with
+V a -> true
+|Node (x,l) -> if (find x b)=false then false else if((arity_find x b != List.length l) )then false else 
+	let rec wftermlist l1 b1 = (match l1 with
+	[] -> true
+	| hd::tl -> wftermlist tl b1 && wfterm hd b1) in wftermlist l b
+
+(*returns the size of a term *)
+let rec size (a:term) = match a with
+V y -> 1
+| Node (x,l) ->1+ (let rec size_list l1 = match l1 with 
+	[] -> 0 
+	|hd::tl -> size hd + size_list tl 
+	in size_list l)  
+
+let add a e = e::a 
+
+(*returns the ht helper function *)
+let compare (a:int) (b:int)  = 
+	b-a
+
+(*returns the list of all the variables  *)
+let rec vars (a:term) listvar = match a with
+V x -> if(List.mem x listvar = false) then add listvar x else listvar
+| Node (y,l) -> List.fold_right vars l listvar 
+
+(* substitute term a for any occurence of variable x in term t *)
+let rec substitution (a : term) (x : variable) (t : term) =
+match t with
+| V y -> if x = y then a else t
+| Node (f, l) -> Node (f, List.map (substitution a x) l) 
+
+(* subst that given a term t and a substitution s, applies the s to t *)
+let subst (s : substitutions) (t : term) =
+  List.fold_right (fun (x, u) -> substitution u x) s t
+
+(* mgu helper function . checks the occurence of x in term t *)
+let rec exist_in_term (x : variable) (t : term) : bool =
+  match t with
+  | V y -> x = y
+  | Node (_, s) -> List.exists (exist_in_term x) s 
+
+(*the function that returns the most general unifier*)
+let rec mgu (s : term) (t : term) =
+  match (s, t) with
+ (V x, V y) -> if x = y then [] else [(x, t)]
+  | (Node (f, sc), Node (g, tc)) ->
+      if f = g && List.length sc = List.length tc
+      then unify_list_pairs (List.combine sc tc)
+      else failwith "NOT_UNIFIABLE."
+  | (V x, (Node (_, _) as t))->
+      if exist_in_term x t
+      then failwith "NOT_UNIFIABLE."
+      else [(x, t)]
+ | ((Node (_, _) as t), V x) -> if exist_in_term x t
+      then failwith "NOT_UNIFIABLE."
+      else [(x, t)]
+and unify_list_pairs (s : (term * term) list) =
+  match s with
+| [] -> []
+  | (x, y) :: t ->
+      let t2 = unify_list_pairs t in
+      let t1 = mgu (subst t2 x) (subst t2 y) in
+      t1 @ t2
+
+let rec max (a) (val1:int) = match a with
+	| [] -> val1
+	| hd::tl -> if(hd>val1) then max tl hd else max tl val1
+
+let rec ht (a:term) = match a with
+V _ -> 0
+| Node (x,l) ->1+ max (List.map ht l) 0 ;;
+
